@@ -40,12 +40,14 @@ def create_project(repo):
 
     command = _graphql_command(_gql_to_create_project(owner_id, repo_id, project_title))
     response = json.loads(subprocess.check_output(command))
+    projectV2 = response['data']['createProjectV2']['projectV2']
 
     return {
-        'id': response['data']['createProjectV2']['projectV2']['id'],
-        'title': response['data']['createProjectV2']['projectV2']['title'],
+        'id': projectV2['id'],
+        'title': projectV2['title'],
         'repo_id': repo_id,
-        'owner_id': owner_id
+        'owner_id': owner_id,
+        'labels': projectV2['labels']['nodes']
     }
 
 
@@ -99,8 +101,13 @@ def add_issue_to_project(project, issue):
 
 
 def _graphql_command(graphql):
-    # Note: the last eleemnt of the command list is concatenated to avoid introducing a space
-    return ['gh', 'api', 'graphql', '-f', 'query=' + graphql]
+    # Notes:
+    #  - the last eleemnt of the command list is concatenated to avoid introducing a space
+    #  - the custom header is allows access to preview features for working with labels
+    #    (see: https://docs.github.com/en/graphql/overview/schema-previews#labels-preview)
+    return ['gh', 'api', 'graphql',
+            '--header', 'ACCEPT:application/vnd.github.bane-preview+json',
+            '--raw-field', 'query=' + graphql]
 
 
 def _gql_for_repo(owner_name, repo_name, include_issues):
@@ -110,6 +117,14 @@ query get_repo_with_issues {{
         id
         owner {{
             id
+        }}
+        labels(first:100) {{
+            nodes {{
+                id
+                name
+                description
+                color
+            }}
         }}
 '''
 
@@ -190,10 +205,8 @@ mutation create_label {{
         description: {json.dumps(description)},
         color: {json.dumps(color)}
     }}) {{
-        createLabel {{
-            label {{
-                id
-            }}
+        label {{
+            id
         }}
     }}
 }}'''
