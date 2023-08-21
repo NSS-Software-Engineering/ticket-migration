@@ -3,6 +3,7 @@
 import json
 import argparse
 import time
+import sys
 import gh
 
 
@@ -16,20 +17,34 @@ def main(args):
             repos = json.load(file)['targetRepos']
 
     for repo in repos:
+        print(f"## Processing {repo}")
         migrate_tickets(args.source_repo, repo, args.throttle_seconds)
+        print()
 
 
 def migrate_tickets(source_repo, target_repo, throttle_seconds):
+    sys.stdout.write("  Creating project ... ")
+    sys.stdout.flush()
     target_project = gh.create_project(target_repo)
     time.sleep(throttle_seconds)
+    sys.stdout.write("done\n")
+    sys.stdout.flush()
 
+    sys.stdout.write("  Retrieving list of issues ... ")
+    sys.stdout.flush()
     issues = gh.get_open_issues(source_repo)
     time.sleep(throttle_seconds)
+    sys.stdout.write("done\n")
+    sys.stdout.flush()
 
+    sys.stdout.write(f"  Creating {len(issues)} issues: ")
     for issue in issues:
+        sys.stdout.write(".")
+        sys.stdout.flush()
         new_issue = gh.create_issue(target_project['repo_id'], issue)
         gh.add_issue_to_project(target_project, new_issue)
         time.sleep(throttle_seconds)
+    sys.stdout.write(" done\n")
 
     print(f'Tickets migrated for {target_repo}!')
 
